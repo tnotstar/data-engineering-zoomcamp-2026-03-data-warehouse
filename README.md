@@ -181,24 +181,58 @@ What is the best strategy to make an optimized table in Big Query if your query 
 - Cluster on tpep_dropoff_datetime Partition by VendorID
 - Partition by tpep_dropoff_datetime and Partition by VendorID
 
+### Answer
+
+Select the option that Partitions by the filter column and Clusters by the ordering column:
+
+* **Partitioning:** Breaks a large table into smaller physical pieces (partitions). This is best used for high-cardinality filtering (like dates). If you partition by tpep_dropoff_datetime, BigQuery can skip reading entire days/months of data that don't match your filter.
+
+* **Clustering:** Sorts the data within each partition. This helps with further filtering and sorting/ordering.
+
+> **Results:** "Partition by tpep_dropoff_datetime and Cluster on VendorID"
 
 ## Question 6. Partition benefits
 
 Write a query to retrieve the distinct VendorIDs between tpep_dropoff_datetime
 2024-03-01 and 2024-03-15 (inclusive)
 
-
 Use the materialized table you created earlier in your from clause and note the estimated bytes. Now change the table in the from clause to the partitioned table you created for question 5 and note the estimated bytes processed. What are these values?
 
-
 Choose the answer which most closely matches.
-
 
 - 12.47 MB for non-partitioned table and 326.42 MB for the partitioned table
 - 310.24 MB for non-partitioned table and 26.84 MB for the partitioned table
 - 5.87 MB for non-partitioned table and 0 MB for the partitioned table
 - 310.31 MB for non-partitioned table and 285.64 MB for the partitioned table
 
+### Answer
+
+#### 1. Create the test table
+
+```sql
+CREATE OR REPLACE TABLE `this-is-my-project-id.this-is-my-dataset-id.yellow_tripdata_2024_partitioned_clustered`
+PARTITION BY DATE(tpep_dropoff_datetime)
+CLUSTER BY VendorID AS
+SELECT * FROM `this-is-my-project-id.this-is-my-dataset-id.yellow_tripdata_2024_ext`;
+```
+
+#### 2. Compare query #1
+
+```sql
+SELECT DISTINCT VendorID
+FROM `this-is-my-project-id.this-is-my-dataset-id.yellow_tripdata_2024_non_partitioned`
+WHERE tpep_dropoff_datetime >= '2024-03-01' AND tpep_dropoff_datetime <= '2024-03-15';
+```
+
+#### 3. Compare query #2
+
+```sql
+SELECT DISTINCT VendorID
+FROM `this-is-my-project-id.this-is-my-dataset-id.yellow_tripdata_2024_partitioned_clustered`
+WHERE tpep_dropoff_datetime >= '2024-03-01' AND tpep_dropoff_datetime <= '2024-03-15';
+```
+
+> **Results:** $310.24$ MB for non-partitioned table and $26.84$ MB for the partitioned table
 
 ## Question 7. External table storage
 
@@ -209,48 +243,30 @@ Where is the data stored in the External Table you created?
 - GCP Bucket
 - Big Table
 
+### Answer
+
+> **Results**: GCP Bucket
+
 ## Question 8. Clustering best practices
 
 It is best practice in Big Query to always cluster your data:
 - True
 - False
 
+### Answer
+
+> **Results:** **False** because tiny tables (e.g., < 1GB) overhead of managing clusters help if the table is so small that scanning the whole thing takes milliseconds anyway
 
 ## Question 9. Understanding table scans
 
 No Points: Write a `SELECT count(*)` query FROM the materialized table you created. How many bytes does it estimate will be read? Why?
 
+### Answer
 
-## Submitting the solutions
+This was my query:
 
-Form for submitting: https://courses.datatalks.club/de-zoomcamp-2026/homework/hw3
-
-
-## Learning in Public
-
-We encourage everyone to share what they learned. This is called "learning in public".
-
-Read more about the benefits [here](https://alexeyondata.substack.com/p/benefits-of-learning-in-public-and).
-
-
-### Example post for LinkedIn
-
+```sql
+SELECT count(*) FROM `this-is-my-project-id.this-is-my-dataset-id.yellow_tripdata_2024_non_partitioned`;
 ```
-Week 3 of Data Engineering Zoomcamp by @DataTalksClub complete!
 
-Just finished Module 3 - Data Warehousing with BigQuery. Learned how to:
-
-* Create external tables from GCS bucket data
-* Build materialized tables in BigQuery
-* Partition and cluster tables for performance
-* Understand columnar storage and query optimization
-* Analyze NYC taxi data at scale
-
-Working with 20M+ records and learning how partitioning reduces query costs!
-
-Here's my homework solution: <LINK>
-
-Following along with this amazing free course - who else is learning data engineering?
-
-You can sign up here: https://github.com/DataTalksClub/data-engineering-zoomcamp/
-```
+It should be 0 B. Because BigQuery keeps metadata about tables, including the total row count. It doesn't need to scan the actual data rows to answer COUNT(*).
